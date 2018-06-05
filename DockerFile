@@ -1,0 +1,9 @@
+# Extension of the Jupyter Notebooks
+# Distributed under the terms of the Modified BSD / MIT License.
+FROM jupyter/scipy-notebook
+
+MAINTAINER Sprinklr
+
+USER root
+
+RUN pip install dist-keras
