@@ -21,6 +21,7 @@ from keras.optimizers import *
 
 from pyspark import SparkConf
 from pyspark import SparkContext
+from pyspark.sql import SparkSession
 
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.ml.feature import OneHotEncoder
@@ -33,9 +34,8 @@ import os
 
 # First, setup the Spark variables. You can modify them to your needs.
 application_name = "Distributed Keras Notebook"
-local = False
-path_train = "data/mnist_train.csv"
-path_test = "data/mnist_test.csv"
+local = True
+path_train = "data/mnist.csv"
 
 if local:
     # Tell master to use local resources.
@@ -75,13 +75,11 @@ sc = SparkSession.builder.config(conf=conf) \
 reader = sc
 
 # Read the training dataset.
-raw_dataset_train = reader.read.format('com.databricks.spark.csv') \
+raw_dataset = reader.read.format('com.databricks.spark.csv') \
     .options(header='true', inferSchema='true') \
     .load(path_train)
 # Read the testing dataset.
-raw_dataset_test = reader.read.format('com.databricks.spark.csv') \
-    .options(header='true', inferSchema='true') \
-    .load(path_test)
+raw_dataset_train,raw_dataset_test = raw_dataset.randomSplit([0.9,0.1])
 
 # First, we would like to extract the desired features from the raw dataset.
 # We do this by constructing a list with all desired columns.
