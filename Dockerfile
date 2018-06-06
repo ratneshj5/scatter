@@ -1,5 +1,6 @@
 ARG cuda_version=9.0
 ARG cudnn_version=7
+
 FROM nvidia/cuda:${cuda_version}-cudnn${cudnn_version}-devel
 
 # Install system packages
@@ -35,6 +36,7 @@ RUN conda install -y python=${python_version} && \
     pip install \
       sklearn_pandas \
       tensorflow-gpu && \
+    pip install https://cntk.ai/PythonWheel/GPU/cntk-2.1-cp36-cp36m-linux_x86_64.whl && \
     conda install \
       bcolz \
       h5py \
