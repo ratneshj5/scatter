@@ -57,4 +57,5 @@ ENV PYTHONPATH='./:$PYTHONPATH'
 
 RUN pip install flask
 RUN pip install pyspark
-RUN apt-get install -y --no-install-recommends openjdk-8-jre-headless
+RUN apt-get -y update && \
+    apt-get install -y --no-install-recommends openjdk-8-jre-headless
