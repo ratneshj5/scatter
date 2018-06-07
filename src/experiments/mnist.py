@@ -7,6 +7,17 @@ on HDFS.
 3. hdfs dfs -copyFromLocal mnist_train.csv data/mnist_train.csv
 4. hdfs dfs -copyFromLocal mnist_test.csv data/mnist_test.csv
 """
+import keras.backend as K
+import tensorflow as tf
+from distkeras.utils import set_keras_base_directory
+
+set_keras_base_directory()
+if K.backend() == 'tensorflow':
+    # set GPU option allow_growth to False for GPU-enabled tensorflow
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    sess = tf.Session(config=config)
+    K.set_session(sess)
 
 from distkeras.evaluators import *
 from distkeras.predictors import *
