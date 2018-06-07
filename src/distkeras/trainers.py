@@ -33,7 +33,7 @@ from distkeras.workers import EAMSGDWorker
 from distkeras.workers import SequentialWorker
 
 from keras import backend as K
-
+import tensorflow as tf
 ## END Imports. ################################################################
 
 class Trainer(object):
@@ -53,6 +53,12 @@ class Trainer(object):
 
     def __init__(self, keras_model, loss, worker_optimizer, metrics=["accuracy"], loss_weights=None):
         set_keras_base_directory()
+        if K.backend() == 'tensorflow':
+            # set GPU option allow_growth to False for GPU-enabled tensorflow
+            config = tf.ConfigProto()
+            config.gpu_options.allow_growth = True
+            sess = tf.Session(config=config)
+            K.set_session(sess)
         self.master_model = serialize_keras_model(keras_model)
         self.loss = loss
         self.loss_weights = loss_weights

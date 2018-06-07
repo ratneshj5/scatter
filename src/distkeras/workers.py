@@ -75,6 +75,13 @@ class Worker(object):
         self.num_inputs = len(self.features_column)
         self.num_outputs = len(self.label_column)
         self.current_epoch = 0
+        set_keras_base_directory()
+        if K.backend() == 'tensorflow':
+            # set GPU option allow_growth to False for GPU-enabled tensorflow
+            config = tf.ConfigProto()
+            config.gpu_options.allow_growth = True
+            sess = tf.Session(config=config)
+            K.set_session(sess)
 
     def set_max_prefetch(self, max_mini_batches):
         """Sets the maximum number of mini-batches that can be prefetched."""
@@ -103,13 +110,6 @@ class Worker(object):
     def prepare_model(self):
         """Prepares the model for training."""
         # Set the Keras directory.
-        set_keras_base_directory()
-        if K.backend() == 'tensorflow':
-            # set GPU option allow_growth to False for GPU-enabled tensorflow
-            config = tf.ConfigProto()
-            config.gpu_options.allow_growth = False
-            sess = tf.Session(config=config)
-            K.set_session(sess)
 
         # Deserialize the Keras model.
         self.model = deserialize_keras_model(self.model)

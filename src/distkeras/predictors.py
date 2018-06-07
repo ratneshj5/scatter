@@ -6,6 +6,8 @@ import numpy as np
 
 from pyspark.mllib.linalg import DenseVector
 
+import keras.backend as K
+import tensorflow as tf
 from distkeras.utils import serialize_keras_model
 from distkeras.utils import deserialize_keras_model
 from distkeras.utils import new_dataframe_row
@@ -53,6 +55,12 @@ class ModelPredictor(Predictor):
         # Arguments:
             iterator: iterator. Spark Row iterator.
         """
+        if K.backend() == 'tensorflow':
+            # set GPU option allow_growth to False for GPU-enabled tensorflow
+            config = tf.ConfigProto()
+            config.gpu_options.allow_growth = True
+            sess = tf.Session(config=config)
+            K.set_session(sess)
         model = deserialize_keras_model(self.model)
         for row in iterator:
             features = [np.asarray([row[c]]) for c in self.features_column]
