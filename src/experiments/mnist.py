@@ -53,7 +53,7 @@ set_session(tf.Session(config=config))
 # First, setup the Spark variables. You can modify them to your needs.
 application_name = "Distributed Keras Notebook"
 local = True
-path_train = "/mnt1/resources/scatter/src/experiments/data/mnist.csv"
+#path_train = "/mnt1/resources/scatter/src/experiments/data/mnist.csv"
 
 if local:
     # Tell master to use local resources.
