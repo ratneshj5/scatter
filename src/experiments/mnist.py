@@ -43,6 +43,13 @@ from pyspark.ml.feature import VectorAssembler
 import pwd
 import os
 
+import tensorflow as tf
+from keras.backend.tensorflow_backend import set_session
+config = tf.ConfigProto()
+config.gpu_options.per_process_gpu_memory_fraction = 0.3
+config.gpu_options.visible_device_list = "0"
+set_session(tf.Session(config=config))
+
 # First, setup the Spark variables. You can modify them to your needs.
 application_name = "Distributed Keras Notebook"
 local = True

@@ -22,6 +22,7 @@ import os
 
 import pwd
 
+
 ## END Import. #################################################################
 
 
@@ -54,7 +55,7 @@ def to_one_hot_encoded_dense(value, n_dim=2):
 
 def new_dataframe_row(old_row, column_name, column_value):
     """Constructs a new Spark Row based on the old row, and a new column name and value."""
-    row = Row(*(old_row.__fields__ + [column_name]))(*(old_row + (column_value, )))
+    row = Row(*(old_row.__fields__ + [column_name]))(*(old_row + (column_value,)))
 
     return row
 
@@ -118,11 +119,18 @@ def history_executor(history, id):
     return executor_history
 
 
+custom_models = {}
+
+
+def register_custom_layer(name, _clazz):
+    custom_models[name] = _clazz
+
+
 def deserialize_keras_model(dictionary):
     """Deserialized the Keras model using the specified dictionary."""
     architecture = dictionary['model']
     weights = dictionary['weights']
-    model = model_from_json(architecture)
+    model = model_from_json(architecture, custom_models)
     model.set_weights(weights)
 
     return model
