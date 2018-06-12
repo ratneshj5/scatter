@@ -1,63 +1,109 @@
-ARG cuda_version=9.0
-ARG cudnn_version=7
+FROM nvidia/cuda:9.0-base-ubuntu16.04
 
-FROM nvidia/cuda:${cuda_version}-cudnn${cudnn_version}-devel
+LABEL maintainer="Ratnesh Jamidar <ratnesh.jamidar@sprinklr.com>"
 
-# Install system packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      bzip2 \
-      g++ \
-      git \
-      graphviz \
-      libgl1-mesa-glx \
-      libhdf5-dev \
-      openmpi-bin \
-      wget && \
-    rm -rf /var/lib/apt/lists/*
+        build-essential \
+        cuda-command-line-tools-9-0 \
+        cuda-cublas-dev-9-0 \
+        cuda-cudart-dev-9-0 \
+        cuda-cufft-dev-9-0 \
+        cuda-curand-dev-9-0 \
+        cuda-cusolver-dev-9-0 \
+        cuda-cusparse-dev-9-0 \
+        curl \
+        git \
+        vim \
+        libcudnn7=7.1.4.18-1+cuda9.0 \
+        libcudnn7-dev=7.1.4.18-1+cuda9.0 \
+        libcurl3-dev \
+        libfreetype6-dev \
+        libhdf5-serial-dev \
+        libpng12-dev \
+        libzmq3-dev \
+        pkg-config \
+        python-dev \
+        rsync \
+        software-properties-common \
+        unzip \
+        zip \
+        zlib1g-dev \
+        wget \
+        && \
+    rm -rf /var/lib/apt/lists/* && \
+    find /usr/local/cuda-9.0/lib64/ -type f -name 'lib*_static.a' -not -name 'libcudart_static.a' -delete && \
+    rm /usr/lib/x86_64-linux-gnu/libcudnn_static_v7.a
 
-# Install conda
-ENV CONDA_DIR /opt/conda
-ENV PATH $CONDA_DIR/bin:$PATH
+RUN curl -fSsL -O https://bootstrap.pypa.io/get-pip.py && \
+    python get-pip.py && \
+    rm get-pip.py
 
-RUN wget --quiet --no-check-certificate https://repo.continuum.io/miniconda/Miniconda3-4.2.12-Linux-x86_64.sh && \
-    echo "c59b3dd3cad550ac7596e0d599b91e75d88826db132e4146030ef471bb434e9a *Miniconda3-4.2.12-Linux-x86_64.sh" | sha256sum -c - && \
-    /bin/bash /Miniconda3-4.2.12-Linux-x86_64.sh -f -b -p $CONDA_DIR && \
-    rm Miniconda3-4.2.12-Linux-x86_64.sh && \
-    echo export PATH=$CONDA_DIR/bin:'$PATH' > /etc/profile.d/conda.sh
+RUN pip --no-cache-dir install \
+        Pillow \
+        h5py \
+        ipykernel \
+        jupyter \
+        matplotlib \
+        mock \
+        numpy \
+        scipy \
+        sklearn \
+        pandas \
+	pyspark \
+        keras \
+        && \
+    python -m ipykernel.kernelspec
 
-# Install Python packages and keras
+# RUN ln -s -f /usr/bin/python3 /usr/bin/python#
 
-USER root
 
-ARG python_version=3.6
+# Set up Bazel.
 
-RUN conda install -y python=${python_version} && \
-    pip install --upgrade pip && \
-    pip install \
-      sklearn_pandas \
-      tensorflow-gpu && \
-    pip install https://cntk.ai/PythonWheel/GPU/cntk-2.1-cp36-cp36m-linux_x86_64.whl && \
-    conda install \
-      bcolz \
-      h5py \
-      matplotlib \
-      mkl \
-      nose \
-      notebook \
-      Pillow \
-      pandas \
-      pygpu \
-      pyyaml \
-      scikit-learn \
-      six \
-      theano && \
-    pip install keras
+# Running bazel inside a `docker build` command causes trouble, cf:
+#   https://github.com/bazelbuild/bazel/issues/134
+# The easiest solution is to set up a bazelrc file forcing --batch.
+RUN echo "startup --batch" >>/etc/bazel.bazelrc
+# Similarly, we need to workaround sandboxing issues:
+#   https://github.com/bazelbuild/bazel/issues/418
+RUN echo "build --spawn_strategy=standalone --genrule_strategy=standalone" \
+    >>/etc/bazel.bazelrc
+# Install the most recent bazel release.
+ENV BAZEL_VERSION 0.11.0
+WORKDIR /
+RUN mkdir /bazel && \
+    cd /bazel && \
+    curl -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36" -fSsL -O https://github.com/bazelbuild/bazel/releases/download/$BAZEL_VERSION/bazel-$BAZEL_VERSION-installer-linux-x86_64.sh && \
+    curl -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36" -fSsL -o /bazel/LICENSE.txt https://raw.githubusercontent.com/bazelbuild/bazel/master/LICENSE && \
+    chmod +x bazel-*.sh && \
+    ./bazel-$BAZEL_VERSION-installer-linux-x86_64.sh && \
+    cd / && \
+    rm -f /bazel/bazel-$BAZEL_VERSION-installer-linux-x86_64.sh
 
-ADD theanorc /home/keras/.theanorc
+# Download and build TensorFlow.
+WORKDIR /tensorflow
+RUN git clone --branch=r1.9 --depth=1 https://github.com/tensorflow/tensorflow.git .
 
-ENV PYTHONPATH='./:$PYTHONPATH'
+# Configure the build for our CUDA configuration.
+ENV CI_BUILD_PYTHON python
+ENV LD_LIBRARY_PATH /usr/local/cuda/extras/CUPTI/lib64:$LD_LIBRARY_PATH
+ENV TF_NEED_CUDA 1
+ENV TF_CUDA_COMPUTE_CAPABILITIES=3.0,3.5,5.2,6.0,6.1
+ENV TF_CUDA_VERSION=9.0
+ENV TF_CUDNN_VERSION=7
 
-RUN pip install flask
-RUN pip install pyspark
+RUN ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1 && \
+    LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs:${LD_LIBRARY_PATH} \
+    tensorflow/tools/ci_build/builds/configured GPU \
+    bazel build -c opt --copt=-mavx --config=cuda \
+	--cxxopt="-D_GLIBCXX_USE_CXX11_ABI=0" \
+        tensorflow/tools/pip_package:build_pip_package && \
+    rm /usr/local/cuda/lib64/stubs/libcuda.so.1 && \
+    bazel-bin/tensorflow/tools/pip_package/build_pip_package /tmp/pip && \
+    pip --no-cache-dir install --upgrade /tmp/pip/tensorflow-*.whl && \
+    rm -rf /tmp/pip && \
+    rm -rf /root/.cache
+# Clean up pip wheel and Bazel cache when done.
+
 RUN apt-get -y update && \
     apt-get install -y --no-install-recommends openjdk-8-jre-headless
+WORKDIR /root
